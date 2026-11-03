@@ -27,6 +27,10 @@ data class Progress(
     val nextReviewTime: Long = 0L,
     @ColumnInfo(name = "ease_factor")
     val easeFactor: Float = 2.5f,
+    @ColumnInfo(name = "fsrs_stability")
+    val fsrsStability: Double = 0.0,
+    @ColumnInfo(name = "fsrs_difficulty")
+    val fsrsDifficulty: Double = 0.0,
     @ColumnInfo(name = "review_count")
     val reviewCount: Int = 0,
     @ColumnInfo(name = "spell_correct_count")

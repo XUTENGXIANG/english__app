@@ -20,7 +20,9 @@ import com.kaoyan.wordhelper.data.model.WordDraft
 import com.kaoyan.wordhelper.ml.core.SchedulingAdjustment
 import com.kaoyan.wordhelper.ml.integration.MLEnhancedScheduler
 import com.kaoyan.wordhelper.util.DateUtils
+import com.kaoyan.wordhelper.util.FsrsScheduler
 import com.kaoyan.wordhelper.util.Sm2Scheduler
+import com.kaoyan.wordhelper.util.toDecision
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
@@ -356,25 +358,35 @@ class WordRepository(private val database: AppDatabase) {
         mlEnabled: Boolean = false,
         sessionPosition: Int = 0,
         sessionTotal: Int = 1,
-        responseTimeMs: Long = 0L
+        responseTimeMs: Long = 0L,
+        fsrsEnabled: Boolean = false
     ) {
         database.withTransaction {
             val existing = progressDao.getGlobalProgress(wordId)
-            val schedule = Sm2Scheduler.schedule(
-                current = existing,
-                rating = rating,
-                algorithmV4Enabled = algorithmV4Enabled
-            )
+            val schedule = if (fsrsEnabled) {
+                FsrsScheduler.schedule(current = existing, rating = rating).toDecision()
+            } else {
+                Sm2Scheduler.schedule(
+                    current = existing,
+                    rating = rating,
+                    algorithmV4Enabled = algorithmV4Enabled
+                ).toDecision()
+            }
 
-            // ML微调
-            val mlAdjustment = mlScheduler?.adjust(
-                baseIntervalDays = schedule.intervalDays,
-                baseEaseFactor = schedule.easeFactor,
-                progress = existing,
-                sessionPosition = sessionPosition,
-                sessionTotal = sessionTotal,
-                mlEnabled = mlEnabled
-            )
+            // FSRS already targets a retention rate; do not stack the SM-2 ML
+            // adjustment on top of it. SM-2 keeps the existing ML behavior.
+            val mlAdjustment = if (fsrsEnabled) {
+                null
+            } else {
+                mlScheduler?.adjust(
+                    baseIntervalDays = schedule.intervalDays,
+                    baseEaseFactor = schedule.easeFactor,
+                    progress = existing,
+                    sessionPosition = sessionPosition,
+                    sessionTotal = sessionTotal,
+                    mlEnabled = mlEnabled
+                )
+            }
             val finalIntervalDays = mlAdjustment?.adjustedIntervalDays ?: schedule.intervalDays
             val finalEaseFactor = if (mlAdjustment != null && mlAdjustment.confidence > 0.1f) {
                 mlAdjustment.adjustedEaseFactor
@@ -385,6 +397,16 @@ class WordRepository(private val database: AppDatabase) {
                 Sm2Scheduler.nextReviewTimeByDays(finalIntervalDays)
             } else {
                 schedule.nextReviewTime
+            }
+            val finalStability = if (fsrsEnabled) {
+                schedule.stability
+            } else {
+                existing?.fsrsStability ?: 0.0
+            }
+            val finalDifficulty = if (fsrsEnabled) {
+                schedule.difficulty
+            } else {
+                existing?.fsrsDifficulty ?: 0.0
             }
 
             val previousReviewCount = existing?.reviewCount ?: 0
@@ -425,6 +447,8 @@ class WordRepository(private val database: AppDatabase) {
                     intervalDays = finalIntervalDays,
                     nextReviewTime = finalNextReviewTime,
                     easeFactor = finalEaseFactor,
+                    fsrsStability = finalStability,
+                    fsrsDifficulty = finalDifficulty,
                     reviewCount = reviewCount,
                     spellCorrectCount = existing?.spellCorrectCount ?: 0,
                     spellWrongCount = existing?.spellWrongCount ?: 0,
@@ -464,25 +488,35 @@ class WordRepository(private val database: AppDatabase) {
         mlScheduler: MLEnhancedScheduler? = null,
         mlEnabled: Boolean = false,
         sessionPosition: Int = 0,
-        sessionTotal: Int = 1
+        sessionTotal: Int = 1,
+        fsrsEnabled: Boolean = false
     ) {
         database.withTransaction {
             val existing = progressDao.getGlobalProgress(wordId)
-            val schedule = Sm2Scheduler.scheduleSpelling(
-                current = existing,
-                outcome = outcome,
-                algorithmV4Enabled = algorithmV4Enabled
-            )
+            val schedule = if (fsrsEnabled) {
+                FsrsScheduler.scheduleSpelling(current = existing, outcome = outcome).toDecision()
+            } else {
+                Sm2Scheduler.scheduleSpelling(
+                    current = existing,
+                    outcome = outcome,
+                    algorithmV4Enabled = algorithmV4Enabled
+                ).toDecision()
+            }
 
-            // ML微调
-            val mlAdjustment = mlScheduler?.adjust(
-                baseIntervalDays = schedule.intervalDays,
-                baseEaseFactor = schedule.easeFactor,
-                progress = existing,
-                sessionPosition = sessionPosition,
-                sessionTotal = sessionTotal,
-                mlEnabled = mlEnabled
-            )
+            // FSRS already targets a retention rate; do not stack the SM-2 ML
+            // adjustment on top of it. SM-2 keeps the existing ML behavior.
+            val mlAdjustment = if (fsrsEnabled) {
+                null
+            } else {
+                mlScheduler?.adjust(
+                    baseIntervalDays = schedule.intervalDays,
+                    baseEaseFactor = schedule.easeFactor,
+                    progress = existing,
+                    sessionPosition = sessionPosition,
+                    sessionTotal = sessionTotal,
+                    mlEnabled = mlEnabled
+                )
+            }
             val finalIntervalDays = mlAdjustment?.adjustedIntervalDays ?: schedule.intervalDays
             val finalEaseFactor = if (mlAdjustment != null && mlAdjustment.confidence > 0.1f) {
                 mlAdjustment.adjustedEaseFactor
@@ -493,6 +527,16 @@ class WordRepository(private val database: AppDatabase) {
                 Sm2Scheduler.nextReviewTimeByDays(finalIntervalDays)
             } else {
                 schedule.nextReviewTime
+            }
+            val finalStability = if (fsrsEnabled) {
+                schedule.stability
+            } else {
+                existing?.fsrsStability ?: 0.0
+            }
+            val finalDifficulty = if (fsrsEnabled) {
+                schedule.difficulty
+            } else {
+                existing?.fsrsDifficulty ?: 0.0
             }
 
             val previousReviewCount = existing?.reviewCount ?: 0
@@ -536,6 +580,8 @@ class WordRepository(private val database: AppDatabase) {
                     intervalDays = finalIntervalDays,
                     nextReviewTime = finalNextReviewTime,
                     easeFactor = finalEaseFactor,
+                    fsrsStability = finalStability,
+                    fsrsDifficulty = finalDifficulty,
                     reviewCount = reviewCount,
                     spellCorrectCount = spellCorrectCount,
                     spellWrongCount = spellWrongCount,
@@ -741,6 +787,8 @@ class WordRepository(private val database: AppDatabase) {
                     intervalDays = 30,
                     nextReviewTime = nextReviewTime,
                     easeFactor = base?.easeFactor ?: 2.5f,
+                    fsrsStability = base?.fsrsStability ?: 0.0,
+                    fsrsDifficulty = base?.fsrsDifficulty ?: 0.0,
                     reviewCount = base?.reviewCount ?: 0,
                     spellCorrectCount = base?.spellCorrectCount ?: 0,
                     spellWrongCount = base?.spellWrongCount ?: 0,
@@ -824,6 +872,8 @@ class WordRepository(private val database: AppDatabase) {
                     Progress(
                         wordId = wordId,
                         bookId = linkedBookId,
+                        fsrsStability = existing?.fsrsStability ?: 0.0,
+                        fsrsDifficulty = existing?.fsrsDifficulty ?: 0.0,
                         spellCorrectCount = spellCorrect,
                         spellWrongCount = spellWrong,
                         markedEasyCount = existing?.markedEasyCount ?: 0,
