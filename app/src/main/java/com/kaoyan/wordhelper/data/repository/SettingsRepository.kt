@@ -18,6 +18,7 @@ private const val DEFAULT_REVIEW_PRESSURE_RELIEF_ENABLED = true
 private const val DEFAULT_REVIEW_PRESSURE_DAILY_CAP = 120
 private const val DEFAULT_SWIPE_GESTURE_GUIDE_SHOWN = false
 private const val DEFAULT_ALGORITHM_V4_ENABLED = false
+private const val DEFAULT_FSRS_ENABLED = true
 private const val DEFAULT_PRONUNCIATION_ENABLED = false
 private const val DEFAULT_PRONUNCIATION_SOURCE = 0
 private const val DEFAULT_RECOGNITION_AUTO_PRONOUNCE_ENABLED = false
@@ -34,6 +35,7 @@ data class UserSettings(
     val reviewPressureDailyCap: Int = DEFAULT_REVIEW_PRESSURE_DAILY_CAP,
     val swipeGestureGuideShown: Boolean = DEFAULT_SWIPE_GESTURE_GUIDE_SHOWN,
     val algorithmV4Enabled: Boolean = DEFAULT_ALGORITHM_V4_ENABLED,
+    val fsrsEnabled: Boolean = DEFAULT_FSRS_ENABLED,
     val pronunciationEnabled: Boolean = DEFAULT_PRONUNCIATION_ENABLED,
     val pronunciationSource: PronunciationSource = PronunciationSource.FREE_DICTIONARY,
     val recognitionAutoPronounceEnabled: Boolean = DEFAULT_RECOGNITION_AUTO_PRONOUNCE_ENABLED,
@@ -89,6 +91,7 @@ class SettingsRepository(private val context: Context) {
                 .coerceIn(10, 500),
             swipeGestureGuideShown = prefs[KEY_SWIPE_GESTURE_GUIDE_SHOWN] ?: DEFAULT_SWIPE_GESTURE_GUIDE_SHOWN,
             algorithmV4Enabled = prefs[KEY_ALGORITHM_V4_ENABLED] ?: DEFAULT_ALGORITHM_V4_ENABLED,
+            fsrsEnabled = prefs[KEY_FSRS_ENABLED] ?: DEFAULT_FSRS_ENABLED,
             pronunciationEnabled = prefs[KEY_PRONUNCIATION_ENABLED] ?: DEFAULT_PRONUNCIATION_ENABLED,
             pronunciationSource = PronunciationSource.fromValue(
                 prefs[KEY_PRONUNCIATION_SOURCE] ?: DEFAULT_PRONUNCIATION_SOURCE
@@ -131,6 +134,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun updateAlgorithmV4Enabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[KEY_ALGORITHM_V4_ENABLED] = enabled }
+    }
+
+    suspend fun updateFsrsEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_FSRS_ENABLED] = enabled }
     }
 
     suspend fun updatePronunciationEnabled(enabled: Boolean) {
@@ -185,6 +192,7 @@ class SettingsRepository(private val context: Context) {
         private val KEY_REVIEW_PRESSURE_DAILY_CAP = intPreferencesKey("review_pressure_daily_cap")
         private val KEY_SWIPE_GESTURE_GUIDE_SHOWN = booleanPreferencesKey("swipe_gesture_guide_shown")
         private val KEY_ALGORITHM_V4_ENABLED = booleanPreferencesKey("algorithm_v4_enabled")
+        private val KEY_FSRS_ENABLED = booleanPreferencesKey("fsrs_enabled")
         private val KEY_PRONUNCIATION_ENABLED = booleanPreferencesKey("pronunciation_enabled")
         private val KEY_PRONUNCIATION_SOURCE = intPreferencesKey("pronunciation_source")
         private val KEY_RECOGNITION_AUTO_PRONOUNCE_ENABLED =

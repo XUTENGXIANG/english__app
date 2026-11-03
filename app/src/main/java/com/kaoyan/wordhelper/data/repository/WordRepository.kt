@@ -763,17 +763,29 @@ class WordRepository(private val database: AppDatabase) {
         }
     }
 
-    suspend fun markWordAsTooEasy(wordId: Long, bookId: Long): Boolean {
+    suspend fun markWordAsTooEasy(
+        wordId: Long,
+        bookId: Long,
+        fsrsEnabled: Boolean = false
+    ): Int? {
         return database.withTransaction {
             val linkedBookIds = (wordDao.getBookIdsByWordId(wordId) + bookId)
                 .distinct()
                 .filter { it > 0L }
-            if (linkedBookIds.isEmpty()) return@withTransaction false
+            if (linkedBookIds.isEmpty()) return@withTransaction null
 
             val now = System.currentTimeMillis()
-            // "太简单" is a user override (hard intervention), not a standard SM-2 transition.
-            val nextReviewTime = Sm2Scheduler.nextReviewTimeByDays(30, now)
             val globalProgress = progressDao.getGlobalProgress(wordId)
+            val fsrsSchedule = if (fsrsEnabled) {
+                FsrsScheduler.scheduleTooEasy(current = globalProgress, now = now)
+            } else {
+                null
+            }
+            // SM-2 keeps the original hard override; FSRS treats "too easy" as
+            // an Easy review and uses its calculated interval.
+            val intervalDays = fsrsSchedule?.intervalDays ?: 30
+            val nextReviewTime = fsrsSchedule?.nextReviewTime
+                ?: Sm2Scheduler.nextReviewTimeByDays(intervalDays, now)
 
             linkedBookIds.forEach { linkedBookId ->
                 val existingByBook = progressDao.getProgress(wordId, linkedBookId)
@@ -782,14 +794,22 @@ class WordRepository(private val database: AppDatabase) {
                     id = existingByBook?.id ?: 0L,
                     wordId = wordId,
                     bookId = linkedBookId,
-                    status = Progress.STATUS_MASTERED,
-                    repetitions = maxOf(base?.repetitions ?: 0, 1),
-                    intervalDays = 30,
+                    status = fsrsSchedule?.status ?: Progress.STATUS_MASTERED,
+                    repetitions = if (fsrsSchedule != null) {
+                        fsrsSchedule.repetitions
+                    } else {
+                        maxOf(base?.repetitions ?: 0, 1)
+                    },
+                    intervalDays = intervalDays,
                     nextReviewTime = nextReviewTime,
                     easeFactor = base?.easeFactor ?: 2.5f,
-                    fsrsStability = base?.fsrsStability ?: 0.0,
-                    fsrsDifficulty = base?.fsrsDifficulty ?: 0.0,
-                    reviewCount = base?.reviewCount ?: 0,
+                    fsrsStability = fsrsSchedule?.stability ?: (base?.fsrsStability ?: 0.0),
+                    fsrsDifficulty = fsrsSchedule?.difficulty ?: (base?.fsrsDifficulty ?: 0.0),
+                    reviewCount = if (fsrsSchedule != null) {
+                        (base?.reviewCount ?: 0) + 1
+                    } else {
+                        base?.reviewCount ?: 0
+                    },
                     spellCorrectCount = base?.spellCorrectCount ?: 0,
                     spellWrongCount = base?.spellWrongCount ?: 0,
                     markedEasyCount = (base?.markedEasyCount ?: 0) + 1,
@@ -805,7 +825,7 @@ class WordRepository(private val database: AppDatabase) {
 
             updateDailyStatsInternal(gestureEasyDelta = 1)
             invalidateForecastCacheInternal()
-            true
+            intervalDays
         }
     }
 

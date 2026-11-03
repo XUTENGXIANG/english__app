@@ -23,6 +23,7 @@ data class AILabUiState(
     val modelName: String = AIConfig.DEFAULT_MODEL_NAME,
     val apiKey: String = "",
     val algorithmV4Enabled: Boolean = false,
+    val fsrsEnabled: Boolean = true,
     val mlAdaptiveEnabled: Boolean = false,
     val mlSampleCount: Int = 0,
     val newWordsShuffleEnabled: Boolean = false,
@@ -67,6 +68,7 @@ class AILabViewModel(application: Application) : AndroidViewModel(application) {
                 modelName = config.modelName,
                 apiKey = config.apiKey,
                 algorithmV4Enabled = settings.algorithmV4Enabled,
+                fsrsEnabled = settings.fsrsEnabled,
                 mlAdaptiveEnabled = settings.mlAdaptiveEnabled,
                 mlSampleCount = app.database.trainingSampleDao().count(),
                 newWordsShuffleEnabled = settings.newWordsShuffleEnabled,
@@ -93,6 +95,13 @@ class AILabViewModel(application: Application) : AndroidViewModel(application) {
                 wordRepository.repairMasteredStatusForV4()
             }
             _uiState.update { it.copy(algorithmV4Enabled = enabled) }
+        }
+    }
+
+    fun updateFsrsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateFsrsEnabled(enabled)
+            _uiState.update { it.copy(fsrsEnabled = enabled) }
         }
     }
 

@@ -40,13 +40,31 @@ object FsrsScheduler {
         rating: StudyRating,
         now: Long = System.currentTimeMillis()
     ): ScheduleResult {
-        val fsrsRating = rating.toFsrsRating()
+        return scheduleWithRating(current = current, rating = rating.toFsrsRating(), now = now)
+    }
+
+    /**
+     * The "too easy" gesture is a direct rating rather than a [StudyRating]
+     * value, so it maps to the FSRS Easy grade explicitly.
+     */
+    fun scheduleTooEasy(
+        current: Progress?,
+        now: Long = System.currentTimeMillis()
+    ): ScheduleResult {
+        return scheduleWithRating(current = current, rating = FsrsRating.EASY, now = now)
+    }
+
+    private fun scheduleWithRating(
+        current: Progress?,
+        rating: FsrsRating,
+        now: Long
+    ): ScheduleResult {
         val result = engine.review(
             state = current.toFsrsState(),
-            rating = fsrsRating,
+            rating = rating,
             elapsedDays = elapsedDays(current, now)
         )
-        val countsAsReview = rating != StudyRating.AGAIN
+        val countsAsReview = rating != FsrsRating.AGAIN
         val reviewCount = (current?.reviewCount ?: 0) + if (countsAsReview) 1 else 0
 
         return ScheduleResult(

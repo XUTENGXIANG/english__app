@@ -179,6 +179,9 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
     val algorithmV4Enabled: StateFlow<Boolean> = settingsRepository.settingsFlow
         .map { it.algorithmV4Enabled }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val fsrsEnabled: StateFlow<Boolean> = settingsRepository.settingsFlow
+        .map { it.fsrsEnabled }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
     val reviewPressureReliefEnabled: StateFlow<Boolean> = settingsRepository.settingsFlow
         .map { it.reviewPressureReliefEnabled }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
@@ -369,7 +372,8 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
                     mlEnabled = currentMlEnabled,
                     sessionPosition = currentSessionPosition,
                     sessionTotal = currentSessionTotal,
-                    responseTimeMs = responseTimeMs
+                    responseTimeMs = responseTimeMs,
+                    fsrsEnabled = fsrsEnabled.value
                 )
             }
             if (effectiveRating == StudyRating.AGAIN) {
@@ -425,7 +429,8 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
                     mlEnabled = currentMlEnabled,
                     sessionPosition = currentSessionPosition,
                     sessionTotal = currentSessionTotal,
-                    responseTimeMs = responseTimeMs
+                    responseTimeMs = responseTimeMs,
+                    fsrsEnabled = fsrsEnabled.value
                 )
             }
             markAnswered()
@@ -482,7 +487,8 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
                     mlScheduler = if (currentMlEnabled) mlScheduler else null,
                     mlEnabled = currentMlEnabled,
                     sessionPosition = currentSessionPosition,
-                    sessionTotal = currentSessionTotal
+                    sessionTotal = currentSessionTotal,
+                    fsrsEnabled = fsrsEnabled.value
                 )
             }
             if (outcome == SpellingOutcome.FAILED) {
@@ -518,17 +524,17 @@ class LearningViewModel(application: Application) : AndroidViewModel(application
             val snapshots = withContext(Dispatchers.IO) {
                 repository.getProgressSnapshotsForWord(word.id)
             }
-            val marked = withContext(Dispatchers.IO) {
-                repository.markWordAsTooEasy(word.id, book.id)
+            val intervalDays = withContext(Dispatchers.IO) {
+                repository.markWordAsTooEasy(word.id, book.id, fsrsEnabled.value)
             }
-            if (!marked) {
+            if (intervalDays == null) {
                 emitSwipeSnackbar("标记失败，请重试")
                 return@launchSubmit
             }
             markAnswered()
             val undoToken = registerTooEasyUndo(word.id, snapshots)
             emitSwipeSnackbar(
-                message = "已标记为太简单，30天后复习",
+                message = "已标记为太简单，${intervalDays}天后复习",
                 actionLabel = "撤销",
                 undoToken = undoToken
             )

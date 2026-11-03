@@ -58,6 +58,16 @@ class FsrsSchedulerTest {
     }
 
     @Test
+    fun tooEasy_usesEasyRating() {
+        val now = 1_700_000_000_000L
+
+        val result = FsrsScheduler.scheduleTooEasy(current = null, now = now)
+
+        assertEquals(8, result.intervalDays)
+        assertTrue(result.stability > 0.0)
+    }
+
+    @Test
     fun newWordRatings_produceIncreasingIntervals() {
         val now = 1_700_000_000_000L
         val again = FsrsScheduler.schedule(null, StudyRating.AGAIN, now)

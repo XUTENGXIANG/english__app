@@ -436,7 +436,11 @@ fun AILabScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(text = "算法实验室", style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    text = if (uiState.algorithmV4Enabled) "当前版本：V4 验证" else "当前版本：V3 稳定",
+                                    text = when {
+                                        uiState.fsrsEnabled -> "当前调度：FSRS-6"
+                                        uiState.algorithmV4Enabled -> "当前版本：V4 验证"
+                                        else -> "当前版本：V3 稳定"
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -444,7 +448,32 @@ fun AILabScreen(
                             Switch(
                                 checked = uiState.algorithmV4Enabled,
                                 onCheckedChange = viewModel::updateAlgorithmV4Enabled,
+                                enabled = !uiState.fsrsEnabled,
                                 modifier = Modifier.testTag("lab_algorithm_switch")
+                            )
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = "FSRS-6 调度", style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    text = if (uiState.fsrsEnabled) {
+                                        "已开启：按 FSRS-6 的 stability 安排复习"
+                                    } else {
+                                        "已关闭：回退到原 SM-2 调度"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = uiState.fsrsEnabled,
+                                onCheckedChange = viewModel::updateFsrsEnabled,
+                                modifier = Modifier.testTag("lab_fsrs_switch")
                             )
                         }
                         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -456,10 +485,10 @@ fun AILabScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(text = "ML自适应学习", style = MaterialTheme.typography.titleSmall)
                                 Text(
-                                    text = if (uiState.mlAdaptiveEnabled) {
-                                        "已开启：按个人遗忘风险动态微调复习间隔"
-                                    } else {
-                                        "已关闭：仅使用基础调度策略"
+                                    text = when {
+                                        uiState.fsrsEnabled -> "FSRS-6 调度中：ML 微调暂不生效"
+                                        uiState.mlAdaptiveEnabled -> "已开启：按个人遗忘风险动态微调复习间隔"
+                                        else -> "已关闭：仅使用基础调度策略"
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant

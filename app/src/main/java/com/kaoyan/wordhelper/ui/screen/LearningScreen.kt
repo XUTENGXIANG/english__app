@@ -851,7 +851,7 @@ private fun SwipeBackgroundIndicator(
                             tint = KnownGreen.copy(alpha = 0.4f + 0.6f * progress)
                         )
                         Text(
-                            text = "太简单（30天）",
+                            text = "太简单",
                             color = KnownGreen.copy(alpha = 0.5f + 0.5f * progress),
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -898,7 +898,7 @@ private fun SwipeGestureCoachMarkDialog(
         title = { Text(text = "手势快捷操作") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = "左滑超过 30%：标记“太简单”，30 天后复习。")
+                Text(text = "左滑超过 30%：标记“太简单”，按当前调度算法安排复习。")
                 Text(text = "右滑超过 30%：快速加入生词本，并切换到下一词。")
             }
         },
